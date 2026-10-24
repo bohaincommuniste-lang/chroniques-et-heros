@@ -8,7 +8,7 @@ import { registerActions } from "../actions.js";
 import { closeModal, openModal, textField, toast } from "../ui.js";
 import { renderApp, saveStatusBadge } from "../app.js";
 import { renderGeneral } from "./general.js";
-import { renderSkills } from "./skills.js";
+import { renderSkills, SKILLS_UI } from "./skills.js";
 import { renderInventory } from "./inventory.js";
 import { renderFeatures } from "./features.js";
 import { renderSpells } from "./spells.js";
@@ -159,6 +159,13 @@ export function registerGlobalActions(): void {
       ? "disadvantage"
       : "none";
       store.touch();
+      renderApp();
+    },
+
+    "skills-subtab": (el) => {
+      const tab = el.dataset.tab as "skills" | "saves" | "tests" | undefined;
+      if (!tab) return;
+      SKILLS_UI.subTab = tab;
       renderApp();
     },
 
