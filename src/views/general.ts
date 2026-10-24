@@ -2,9 +2,11 @@
 
 import type { AbilityKey, Character } from "../types.js";
 import { ABILITIES, ABILITY_LABELS, ALIGNMENTS, CLASSES, SPECIES } from "../data.js";
-import { esc, fmtMod } from "../utils.js";
+import { esc, fmtMod, getPath, setPath, deepClone } from "../utils.js";
 import { abilityMod, proficiencyBonus } from "../rules.js";
 import { store } from "../state.js";
+import { tagEditor } from "./widgets.js";
+import { registerActions } from "../actions.js";
 
 export function renderGeneral(character: Character): string {
   return `<div class="grid-3">
@@ -113,38 +115,42 @@ function abilitiesCard(c: Character): string {
 
 function derivedCard(c: Character): string {
   const k = c.general.combat;
+  const g = c.general;
   return `<section class="card">
-    <h2>Statistiques dérivées</h2>
-    <div class="field-row-3">
-      <label class="field"><span>CA</span>
-        <input type="number" data-bind="general.combat.ac" value="${k.ac}" data-rerender="true"></label>
-      <label class="field"><span>Initiative</span>
-        <input type="number" data-bind="general.combat.initiative" value="${k.initiative}" data-rerender="true"></label>
-      <label class="field"><span>Vitesse (m)</span>
-        <input type="number" data-bind="general.combat.speed" value="${k.speed}" data-rerender="true"></label>
-    </div>
-    <div class="field-row-3">
-      <label class="field"><span>PV max</span>
-        <input type="number" data-bind="general.combat.hpMax" value="${k.hpMax}" data-rerender="true"></label>
-      <label class="field"><span>PV actuels</span>
-        <input type="number" data-bind="general.combat.hpCurrent" value="${k.hpCurrent}" data-rerender="true"></label>
-      <label class="field"><span>PV temp.</span>
-        <input type="number" data-bind="general.combat.hpTemp" value="${k.hpTemp}" data-rerender="true"></label>
-    </div>
-    <div class="field-row-3">
-      <label class="field"><span>Dés de vie</span>
-        <input type="text" data-bind="general.combat.hitDice" value="${esc(k.hitDice)}" placeholder="5d8"></label>
-      <label class="field"><span>Bonus maîtrise</span>
-        <input type="number" min="2" max="9" data-bind="general.combat.proficiencyBonus"
-               value="${proficiencyBonus(c)}" data-rerender="true"></label>
-      <label class="field"><span>Perc. passive</span>
-        <input type="number" data-bind="general.combat.passivePerception" value="${k.passivePerception}"></label>
-    </div>
-    <label class="field" style="flex-direction:row;align-items:center;gap:8px">
-      <input type="checkbox" data-bind="general.combat.inspiration" ${k.inspiration ? "checked" : ""}
-             data-rerender="true" style="width:auto">
-      <span style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)">Inspiration</span>
-    </label>
+  <h2>Statistiques dérivées</h2>
+  <div class="field-row-3">
+  <label class="field"><span>CA</span>
+  <input type="number" data-bind="general.combat.ac" value="${k.ac}" data-rerender="true"></label>
+  <label class="field"><span>Initiative</span>
+  <input type="number" data-bind="general.combat.initiative" value="${k.initiative}" data-rerender="true"></label>
+  <label class="field"><span>Vitesse (m)</span>
+  <input type="number" data-bind="general.combat.speed" value="${k.speed}" data-rerender="true"></label>
+  </div>
+  <div class="field-row-3">
+  <label class="field"><span>PV max</span>
+  <input type="number" data-bind="general.combat.hpMax" value="${k.hpMax}" data-rerender="true"></label>
+  <label class="field"><span>PV actuels</span>
+  <input type="number" data-bind="general.combat.hpCurrent" value="${k.hpCurrent}" data-rerender="true"></label>
+  <label class="field"><span>PV temp.</span>
+  <input type="number" data-bind="general.combat.hpTemp" value="${k.hpTemp}" data-rerender="true"></label>
+  </div>
+  <div class="field-row-3">
+  <label class="field"><span>Dés de vie</span>
+  <input type="text" data-bind="general.combat.hitDice" value="${esc(k.hitDice)}" placeholder="5d8"></label>
+  <label class="field"><span>Bonus maîtrise</span>
+  <input type="number" min="2" max="9" data-bind="general.combat.proficiencyBonus"
+  value="${proficiencyBonus(c)}" data-rerender="true"></label>
+  <label class="field"><span>Perc. passive</span>
+  <input type="number" data-bind="general.combat.passivePerception" value="${k.passivePerception}"></label>
+  </div>
+  <div class="field-row">
+  <label class="field"><span>Points d'XP</span>
+  <input type="number" min="0" step="1" data-bind="general.xp"
+  value="${g.xp}" data-rerender="true"></label>
+  <label class="field"><span>Inspiration</span>
+  <input type="number" min="0" step="1" data-bind="general.combat.inspiration"
+  value="${k.inspiration}" data-rerender="true"></label>
+  </div>
   </section>`;
 }
 
@@ -195,20 +201,74 @@ function bioCard(c: Character): string {
 function miscCard(c: Character): string {
   const g = c.general;
   return `<section class="card">
-    <h2>Autres informations</h2>
-    <div class="field-row">
-      <label class="field"><span>Divinité</span>
-        <input type="text" data-bind="general.deity" value="${esc(g.deity)}"></label>
-      <label class="field"><span>Langues</span>
-        <input type="text" data-bind="general.languages" value="${esc(g.languages)}"></label>
-    </div>
-    <label class="field"><span>Outils maîtrisés</span>
-      <input type="text" data-bind="general.tools" value="${esc(g.tools)}"></label>
-    <label class="field"><span>Résistances / immunités</span>
-      <input type="text" data-bind="general.resistances" value="${esc(g.resistances)}"></label>
-    <label class="field"><span>Sens</span>
-      <input type="text" data-bind="general.senses" value="${esc(g.senses)}"></label>
-    <label class="field"><span>Notes générales</span>
-      <textarea data-bind="general.notes" rows="3">${esc(g.notes)}</textarea></label>
+  <h2>Autres informations</h2>
+  <div class="field-row">
+  <label class="field"><span>Divinité</span>
+  <input type="text" data-bind="general.deity" value="${esc(g.deity)}"></label>
+  <label class="field"><span>Langues</span>
+  <input type="text" data-bind="general.languages" value="${esc(g.languages)}"></label>
+  </div>
+  <label class="field"><span>Outils maîtrisés</span>
+  <input type="text" data-bind="general.tools" value="${esc(g.tools)}"></label>
+
+  <div class="field">
+  <span>Résistances</span>
+  ${tagEditor("general.resistances", g.resistances, "Ajouter une résistance (ex. : Feu)…")}
+  </div>
+  <div class="field">
+  <span>Immunités</span>
+  ${tagEditor("general.immunities", g.immunities, "Ajouter une immunité (ex. : Poison)…")}
+  </div>
+
+  <label class="field"><span>Sens</span>
+  <input type="text" data-bind="general.senses" value="${esc(g.senses)}"></label>
+  <label class="field"><span>Notes générales</span>
+  <textarea data-bind="general.notes" rows="3">${esc(g.notes)}</textarea></label>
   </section>`;
 }
+
+registerActions({
+  "add-tag": (el) => {
+    const character = store.current();
+    if (!character) return;
+    const path = el.dataset.path as string;
+    const editor = el.closest<HTMLElement>(".tag-editor");
+    const input = editor?.querySelector<HTMLInputElement>("input[data-tag-new]");
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+
+    const current = (getPath(character, path) as string[] | undefined) ?? [];
+    if (current.includes(value)) {
+      input.value = "";
+      return;
+    }
+    setPath(character, path, [...current, value]);
+    input.value = "";
+    store.touch();
+    import("../app.js").then(({ renderApp }) => renderApp());
+  },
+
+  "remove-tag": (el) => {
+    const character = store.current();
+    if (!character) return;
+    const path = el.dataset.path as string;
+    const index = Number(el.dataset.index);
+    const current = (getPath(character, path) as string[] | undefined) ?? [];
+    if (!Number.isInteger(index) || index < 0 || index >= current.length) return;
+    setPath(character, path, current.filter((_, i) => i !== index));
+    store.touch();
+    import("../app.js").then(({ renderApp }) => renderApp());
+  },
+});
+
+/* Entrée dans le champ = ajouter */
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Enter") return;
+  const input = ev.target as HTMLElement | null;
+  if (!(input instanceof HTMLInputElement) || !input.hasAttribute("data-tag-new")) return;
+  ev.preventDefault();
+  const editor = input.closest<HTMLElement>(".tag-editor");
+  const button = editor?.querySelector<HTMLElement>('[data-action="add-tag"]');
+  button?.click();
+});

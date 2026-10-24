@@ -45,30 +45,33 @@ export function renderSheet(character, tab) {
 function sheetHeader(character) {
     const g = character.general;
     const level = totalLevel(character);
+    const xp = g.xp;
+    const xpLabel = xp > 0 ? xp.toLocaleString("fr-FR") : "0";
     const portrait = g.imageBase64
         ? `<img src="${g.imageBase64}" alt="Portrait de ${esc(g.name)}">`
         : `<span>${esc((g.name || "?").charAt(0).toUpperCase())}</span>`;
     return `<header class="sheet-header">
-    <div class="sheet-portrait">${portrait}</div>
-    <div class="sheet-id">
-      <h1>${esc(g.name || "Sans nom")}</h1>
-      <div class="lineage">
-        ${esc(g.species || "Espèce")} · ${esc(classLine(character))}
-        · Niveau ${level}${g.alignment ? ` · ${esc(g.alignment)}` : ""}
-      </div>
-      <div class="player">Joueur : ${esc(g.playerName || "—")} &nbsp;·&nbsp; ${saveStatusBadge()}</div>
-      <div class="quickstats">
-        <div class="qs"><b>${g.combat.ac}</b><span>CA</span></div>
-        <div class="qs"><b>${g.combat.initiative >= 0 ? "+" : ""}${g.combat.initiative}</b><span>Init.</span></div>
-        <div class="qs hp"><b>${g.combat.hpCurrent} / ${g.combat.hpMax}</b><span>PV</span></div>
-        <div class="qs"><b>${g.combat.speed} m</b><span>Vitesse</span></div>
-        <div class="qs"><b>+${g.combat.proficiencyBonus}</b><span>Maîtrise</span></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:6px;align-items:flex-start">
-      <button class="icon-btn" data-action="toggle-dark" title="Thème">🌓</button>
-      <button class="icon-btn" data-action="export-current" title="Exporter">⭳</button>
-    </div>
+  <div class="sheet-portrait">${portrait}</div>
+  <div class="sheet-id">
+  <h1>${esc(g.name || "Sans nom")}</h1>
+  <div class="lineage">
+  ${esc(g.species || "Espèce")} · ${esc(classLine(character))}
+  · Niveau ${level}${g.alignment ? ` · ${esc(g.alignment)}` : ""}
+  </div>
+  <div class="player">Joueur : ${esc(g.playerName || "—")} &nbsp;·&nbsp; ${saveStatusBadge()}</div>
+  <div class="quickstats">
+  <div class="qs"><b>${g.combat.ac}</b><span>CA</span></div>
+  <div class="qs"><b>${g.combat.initiative >= 0 ? "+" : ""}${g.combat.initiative}</b><span>Init.</span></div>
+  <div class="qs hp"><b>${g.combat.hpCurrent} / ${g.combat.hpMax}</b><span>PV</span></div>
+  <div class="qs"><b>${g.combat.speed} m</b><span>Vitesse</span></div>
+  <div class="qs"><b>+${g.combat.proficiencyBonus}</b><span>Maîtrise</span></div>
+  <div class="qs xp"><b>${xpLabel}</b><span>XP</span></div>
+  </div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:flex-start">
+  <button class="icon-btn" data-action="toggle-dark" title="Thème">🌓</button>
+  <button class="icon-btn" data-action="export-current" title="Exporter">⭳</button>
+  </div>
   </header>`;
 }
 /* ------------------------------ Actions de la fiche ------------------------------ */
@@ -132,6 +135,23 @@ export function registerGlobalActions() {
                 return;
             skill.proficiency =
                 skill.proficiency === "none" ? "proficient" : skill.proficiency === "proficient" ? "expertise" : "none";
+            store.touch();
+            renderApp();
+        },
+        "cycle-advantage": (el) => {
+            const character = store.current();
+            if (!character)
+                return;
+            const index = Number(el.dataset.index);
+            const skill = character.skills[index];
+            if (!skill)
+                return;
+            skill.advantage =
+                skill.advantage === "none"
+                    ? "advantage"
+                    : skill.advantage === "advantage"
+                        ? "disadvantage"
+                        : "none";
             store.touch();
             renderApp();
         },

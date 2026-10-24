@@ -6,7 +6,7 @@ import { StorageService, loadPrefs, savePrefs, type Prefs } from "./storage.js";
 import { deepClone, uid } from "./utils.js";
 import { applyTheme } from "./app.js";
 
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "1.1";
 
 function blankAbilities(): Record<AbilityKey, Ability> {
   const out = {} as Record<AbilityKey, Ability>;
@@ -51,16 +51,18 @@ export function blankCharacter(name = "Nouveau personnage"): Character {
         speed: 9,
         proficiencyBonus: 2,
         passivePerception: 10,
-        inspiration: false,
+        inspiration: 0,
       },
       deity: "",
       languages: "",
       tools: "",
-      resistances: "",
+      resistances: [],
+      immunities: [],
       senses: "",
+      xp: 0,
       notes: "",
     },
-    skills: SKILLS.map((s) => ({ name: s.name, ability: s.ability, proficiency: "none" as const })),
+    skills: SKILLS.map((s) => ({ name: s.name, ability: s.ability, proficiency: "none" as const, advantage: "none" as const, })),
     otherTests: [],
     inventory: {
       items: [],
@@ -101,6 +103,46 @@ function mergeDeep(base: unknown, patch: unknown): unknown {
   return patch === undefined || patch === null ? base : patch;
 }
 
+/** Migration v1.0 → v1.1 : inspiration, résistances, immunités, avantage compétences. */
+function migrateRaw(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+
+  const g = obj.general;
+  if (g && typeof g === "object") {
+    const general = g as Record<string, unknown>;
+
+    if (typeof general.resistances === "string") {
+      general.resistances = (general.resistances as string)
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    }
+    if (!Array.isArray(general.resistances)) general.resistances = [];
+    if (!Array.isArray(general.immunities)) general.immunities = [];
+    if (typeof general.xp !== "number") general.xp = 0;
+
+    const combat = general.combat;
+    if (combat && typeof combat === "object") {
+      const c = combat as Record<string, unknown>;
+      if (typeof c.inspiration === "boolean") c.inspiration = c.inspiration ? 1 : 0;
+      if (typeof c.inspiration !== "number") c.inspiration = 0;
+    }
+  }
+
+  if (Array.isArray(obj.skills)) {
+    for (const skill of obj.skills) {
+      if (!skill || typeof skill !== "object") continue;
+      const s = skill as Record<string, unknown>;
+      if (s.advantage !== "advantage" && s.advantage !== "disadvantage") {
+        s.advantage = "none";
+      }
+    }
+  }
+
+  return obj;
+}
+
 /** Normalise / migre un personnage importé. */
 export function normalizeCharacter(raw: unknown): Character {
   const base = blankCharacter();
@@ -118,6 +160,7 @@ export function normalizeCharacter(raw: unknown): Character {
       name: s.name,
       ability: s.ability,
       proficiency: found?.proficiency ?? "none",
+      advantage: found?.advantage ?? "none",
     };
   });
 

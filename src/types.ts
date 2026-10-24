@@ -1,11 +1,12 @@
 /**
- * Modèle de données — schéma v1.0
+ * Modèle de données — schéma v1.1
  * Toute évolution structurelle doit incrémenter `schemaVersion`
  * et être prise en charge par `normalizeCharacter()` (state.ts).
  */
 
 export type AbilityKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
 export type Proficiency = "none" | "proficient" | "expertise";
+export type Advantage = "none" | "advantage" | "disadvantage";
 
 export interface Ability {
   score: number;
@@ -22,6 +23,7 @@ export interface SkillEntry {
   name: string;
   ability: AbilityKey;
   proficiency: Proficiency;
+  advantage: Advantage;
 }
 
 export interface OtherTest {
@@ -140,7 +142,7 @@ export interface CombatStats {
   speed: number;
   proficiencyBonus: number;
   passivePerception: number;
-  inspiration: boolean;
+  inspiration: number;
 }
 
 export interface GeneralBlock {
@@ -165,8 +167,10 @@ export interface GeneralBlock {
   deity: string;
   languages: string;
   tools: string;
-  resistances: string;
+  resistances: string[];
+  immunities: string[];
   senses: string;
+  xp: number;
   notes: string;
 }
 

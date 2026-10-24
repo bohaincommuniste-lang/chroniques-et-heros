@@ -3,7 +3,7 @@ import { ABILITIES, SKILLS } from "./data.js";
 import { StorageService, loadPrefs, savePrefs } from "./storage.js";
 import { deepClone, uid } from "./utils.js";
 import { applyTheme } from "./app.js";
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "1.1";
 function blankAbilities() {
     const out = {};
     for (const key of ABILITIES)
@@ -47,16 +47,18 @@ export function blankCharacter(name = "Nouveau personnage") {
                 speed: 9,
                 proficiencyBonus: 2,
                 passivePerception: 10,
-                inspiration: false,
+                inspiration: 0,
             },
             deity: "",
             languages: "",
             tools: "",
-            resistances: "",
+            resistances: [],
+            immunities: [],
             senses: "",
+            xp: 0,
             notes: "",
         },
-        skills: SKILLS.map((s) => ({ name: s.name, ability: s.ability, proficiency: "none" })),
+        skills: SKILLS.map((s) => ({ name: s.name, ability: s.ability, proficiency: "none", advantage: "none", })),
         otherTests: [],
         inventory: {
             items: [],
@@ -96,6 +98,47 @@ function mergeDeep(base, patch) {
     }
     return patch === undefined || patch === null ? base : patch;
 }
+/** Migration v1.0 → v1.1 : inspiration, résistances, immunités, avantage compétences. */
+function migrateRaw(raw) {
+    if (!raw || typeof raw !== "object")
+        return raw;
+    const obj = raw;
+    const g = obj.general;
+    if (g && typeof g === "object") {
+        const general = g;
+        if (typeof general.resistances === "string") {
+            general.resistances = general.resistances
+                .split(/[,;]/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+        }
+        if (!Array.isArray(general.resistances))
+            general.resistances = [];
+        if (!Array.isArray(general.immunities))
+            general.immunities = [];
+        if (typeof general.xp !== "number")
+            general.xp = 0;
+        const combat = general.combat;
+        if (combat && typeof combat === "object") {
+            const c = combat;
+            if (typeof c.inspiration === "boolean")
+                c.inspiration = c.inspiration ? 1 : 0;
+            if (typeof c.inspiration !== "number")
+                c.inspiration = 0;
+        }
+    }
+    if (Array.isArray(obj.skills)) {
+        for (const skill of obj.skills) {
+            if (!skill || typeof skill !== "object")
+                continue;
+            const s = skill;
+            if (s.advantage !== "advantage" && s.advantage !== "disadvantage") {
+                s.advantage = "none";
+            }
+        }
+    }
+    return obj;
+}
 /** Normalise / migre un personnage importé. */
 export function normalizeCharacter(raw) {
     const base = blankCharacter();
@@ -112,6 +155,7 @@ export function normalizeCharacter(raw) {
             name: s.name,
             ability: s.ability,
             proficiency: found?.proficiency ?? "none",
+            advantage: found?.advantage ?? "none",
         };
     });
     if (!Array.isArray(merged.general.classes) || merged.general.classes.length === 0) {

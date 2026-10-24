@@ -17,3 +17,29 @@ export function pips(current: number, max: number, action: string, id: string): 
   }
   return total === 0 ? `<span style="font-size:12.5px;color:var(--muted)">Aucune charge</span>` : html;
 }
+
+export function tagEditor(path: string, items: string[], placeholder: string): string {
+  const tags = items
+  .map(
+    (item, i) => `<span class="tag">${escapeTag(item)}<button type="button"
+    data-action="remove-tag" data-path="${path}" data-index="${i}"
+    aria-label="Retirer">×</button></span>`
+  )
+  .join("");
+
+  return `<div class="tag-editor" data-tag-path="${path}">
+  <div class="tag-list">${
+    tags || `<span class="tag-empty">Aucune entrée</span>`
+  }</div>
+  <div class="tag-input-row">
+  <input type="text" data-tag-new placeholder="${escapeTag(placeholder)}">
+  <button type="button" class="btn btn-sm" data-action="add-tag" data-path="${path}">＋</button>
+  </div>
+  </div>`;
+}
+
+function escapeTag(s: string): string {
+  return String(s).replace(/[&<>"']/g, (c) =>
+  c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
+  );
+}

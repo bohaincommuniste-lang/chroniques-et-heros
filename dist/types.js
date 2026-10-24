@@ -1,5 +1,5 @@
 /**
- * Modèle de données — schéma v1.0
+ * Modèle de données — schéma v1.1
  * Toute évolution structurelle doit incrémenter `schemaVersion`
  * et être prise en charge par `normalizeCharacter()` (state.ts).
  */

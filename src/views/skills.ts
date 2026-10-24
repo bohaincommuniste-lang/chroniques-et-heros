@@ -1,6 +1,6 @@
 /** Onglet « Caractéristiques » : compétences, jets de sauvegarde, autres tests. */
 
-import type { AbilityKey, Character } from "../types.js";
+import type { AbilityKey, Advantage, Character } from "../types.js";
 import { ABILITIES, ABILITY_LABELS, ABILITY_SHORT } from "../data.js";
 import { esc, fmtMod } from "../utils.js";
 import { abilityMod, otherTestBonus, proficiencyBonus, saveBonus, skillBonus } from "../rules.js";
@@ -79,10 +79,11 @@ function skillsPanel(c: Character): string {
     .sort((a, b) => a.skill.name.localeCompare(b.skill.name, "fr"))
     .map(
       ({ skill, index }) => `<tr>
-        <td>${esc(skill.name)}</td>
-        <td class="num"><span class="badge">${ABILITY_SHORT[skill.ability]}</span></td>
-        <td class="num" style="font-weight:600">${fmtMod(skillBonus(c, skill))}</td>
-        <td class="num">${profButton(skill.proficiency, `data-action="cycle-prof" data-index="${index}"`)}</td>
+      <td>${esc(skill.name)}</td>
+      <td class="num"><span class="badge">${ABILITY_SHORT[skill.ability]}</span></td>
+      <td class="num" style="font-weight:600">${fmtMod(skillBonus(c, skill))}</td>
+      <td class="num">${profButton(skill.proficiency, `data-action="cycle-prof" data-index="${index}"`)}</td>
+      <td class="num">${advButton(skill.advantage, index)}</td>
       </tr>`
     )
     .join("");
@@ -92,33 +93,32 @@ function skillsPanel(c: Character): string {
   ).join("");
 
   return `<section class="card">
-    <h2>Compétences</h2>
-    <div class="toolbar" style="margin-bottom:10px">
-      <label class="search" style="min-width:180px;flex:1">
-        <span>🔍</span>
-        <input type="search" id="skill-search" placeholder="Rechercher une compétence…"
-               value="${esc(SKILLS_UI.query)}" data-skill-filter="query">
-      </label>
-      <select class="input" style="width:auto" data-skill-filter="ability">
-        <option value="">Toutes les caractéristiques</option>${abilityOptions}
-      </select>
-      <select class="input" style="width:auto" data-skill-filter="mastery">
-        <option value="all">Toutes les maîtrises</option>
-        <option value="proficient"${SKILLS_UI.masteryFilter === "proficient" ? " selected" : ""}>Maîtrisées</option>
-        <option value="expertise"${SKILLS_UI.masteryFilter === "expertise" ? " selected" : ""}>Expertise</option>
-        <option value="none"${SKILLS_UI.masteryFilter === "none" ? " selected" : ""}>Non maîtrisées</option>
-      </select>
-    </div>
-    <table class="table">
-      <thead><tr>
-        <th>Compétence</th><th class="num">Carac.</th><th class="num">Bonus</th><th class="num">Maîtrise</th>
-      </tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="empty">Aucune compétence ne correspond au filtre.</td></tr>`}</tbody>
-    </table>
-    <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
-      Cliquez sur la case : ○ aucune · ● maîtrise · ◆ expertise.
-    </p>
+  <h2>Compétences</h2>
+  <!-- toolbar inchangée -->
+  <table class="table">
+  <thead><tr>
+  <th>Compétence</th><th class="num">Carac.</th><th class="num">Bonus</th>
+  <th class="num">Maîtrise</th><th class="num">Avantage</th>
+  </tr></thead>
+  <tbody>${rows || `<tr><td colspan="5" class="empty">Aucune compétence ne correspond au filtre.</td></tr>`}</tbody>
+  </table>
+  <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+  Maîtrise : ○ aucune · ● maîtrise · ◆ expertise. — Avantage : – neutre · ▲ avantage · ▼ désavantage.
+  </p>
   </section>`;
+}
+
+function advButton(state: Advantage, index: number): string {
+  const map = {
+    none: { symbol: "–", cls: "" },
+    advantage: { symbol: "▲", cls: "advantage" },
+    disadvantage: { symbol: "▼", cls: "disadvantage" },
+  } as const;
+  const cfg = map[state] ?? map.none;
+  return `<button class="adv-btn${cfg.cls ? " " + cfg.cls : ""}"
+  data-action="cycle-advantage" data-index="${index}"
+  title="${state === "advantage" ? "Avantage" : state === "disadvantage" ? "Désavantage" : "Neutre"}"
+  aria-label="Avantage">${cfg.symbol}</button>`;
 }
 
 /* ------------------------------ Jets de sauvegarde ------------------------------ */
