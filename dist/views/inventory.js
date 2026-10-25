@@ -1,9 +1,8 @@
-/** Onglet « Inventaire » : objets, armes, monnaie, capacité de charge. */
 import { ITEM_CATEGORIES } from "../data.js";
 import { carriesCapacityKg, inventoryWeight } from "../rules.js";
 import { esc, fmtMod, uid } from "../utils.js";
 import { store } from "../state.js";
-import { closeModal, collectFields, modalRoot, openModal, progressBar, textField, toast, emptyState } from "../ui.js";
+import { closeModal, collectFields, emptyState, modalRoot, openModal, progressBar, textField, toast } from "../ui.js";
 import { renderApp } from "../app.js";
 export const INVENTORY_UI = {
     tab: "Tout",
@@ -11,43 +10,44 @@ export const INVENTORY_UI = {
     selectedWeaponId: null,
 };
 export function renderInventory(c) {
-    const tabs = ["Tout", "armes", "armures", "consommables", "autres"];
     const tabDefs = [
         { id: "Tout", label: "Tout" },
-        { id: "Armes", label: "Armes" },
+        { id: "arme", label: "Armes" },
         { id: "armure", label: "Armures" },
         { id: "consommable", label: "Consommables" },
+        { id: "objet magique", label: "Objets magiques" },
         { id: "divers", label: "Autres" },
+        { id: "Attaques", label: "Attaques" },
     ];
     const tabsHtml = tabDefs
         .map((t) => `<button class="tab${INVENTORY_UI.tab === t.id ? " active" : ""}" data-action="inventory-tab"
-                 data-tab="${esc(t.id)}">${t.label}</button>`)
+    data-tab="${esc(t.id)}">${t.label}</button>`)
         .join("");
-    const isWeaponsTab = INVENTORY_UI.tab === "Armes";
+    const isWeaponsTab = INVENTORY_UI.tab === "Attaques";
     return `
-    <div class="tabs">${tabsHtml}</div>
-    <div class="grid-2" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
-      <section class="card">
-        ${isWeaponsTab ? weaponsTable(c) : itemsTable(c)}
-        <div style="margin-top:10px">
-          <button class="btn btn-sm" data-action="${isWeaponsTab ? "add-weapon" : "add-item"}">
-            ＋ Ajouter ${isWeaponsTab ? "une arme" : "un objet"}
-          </button>
-        </div>
-      </section>
-      <section class="card detail-pane">
-        ${isWeaponsTab ? weaponDetail(c) : itemDetail(c)}
-      </section>
-    </div>
-    <div class="grid-2" style="margin-top:14px">
-      ${capacityCard(c)}
-      ${currencyCard(c)}
-    </div>`;
+  <div class="tabs">${tabsHtml}</div>
+  <div class="grid-2" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
+  <section class="card">
+  ${isWeaponsTab ? weaponsTable(c) : itemsTable(c)}
+  <div style="margin-top:10px">
+  <button class="btn btn-sm" data-action="${isWeaponsTab ? "add-weapon" : "add-item"}">
+  ＋ Ajouter ${isWeaponsTab ? "une attaque" : "un objet"}
+  </button>
+  </div>
+  </section>
+  <section class="card detail-pane">
+  ${isWeaponsTab ? weaponDetail(c) : itemDetail(c)}
+  </section>
+  </div>
+  <div class="grid-2" style="margin-top:14px">
+  ${capacityCard(c)}
+  ${currencyCard(c)}
+  </div>`;
 }
 /* ------------------------------ Objets ------------------------------ */
 function filteredItems(c) {
     const items = c.inventory.items;
-    if (INVENTORY_UI.tab === "Tout")
+    if (INVENTORY_UI.tab === "Tout" || INVENTORY_UI.tab === "Attaques")
         return items;
     return items.filter((it) => it.category === INVENTORY_UI.tab);
 }
@@ -58,19 +58,20 @@ function itemsTable(c) {
     }
     const rows = items
         .map((item) => `<tr class="${item.id === INVENTORY_UI.selectedItemId ? "is-selected" : ""}"
-                     data-action="select-item" data-id="${item.id}" style="cursor:pointer">
-        <td>${esc(item.name)}</td>
-        <td class="num">${item.quantity}</td>
-        <td class="num">${item.weight} kg</td>
-        <td class="num">${item.value} PO</td>
-        <td class="num"><span class="badge">${esc(item.category)}</span></td>
-      </tr>`)
+    data-action="select-item" data-id="${item.id}" style="cursor:pointer">
+    <td>${esc(item.name)}</td>
+    <td class="num">${item.quantity}</td>
+    <td class="num">${item.weight} kg</td>
+    <td class="num">${item.value} PO</td>
+    <td class="num"><span class="badge">${esc(item.category)}</span></td>
+    </tr>`)
         .join("");
-    return `<h2>Objets</h2>
-    <table class="table">
-      <thead><tr><th>Nom</th><th class="num">Qté</th><th class="num">Poids</th><th class="num">Valeur</th><th class="num">Catégorie</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="empty">Aucun objet dans cette catégorie.</td></tr>`}</tbody>
-    </table>`;
+    const label = INVENTORY_UI.tab === "Tout" ? "Tous les objets" : `Objets · ${INVENTORY_UI.tab}`;
+    return `<h2>${esc(label)}</h2>
+  <table class="table">
+  <thead><tr><th>Nom</th><th class="num">Qté</th><th class="num">Poids</th><th class="num">Valeur</th><th class="num">Catégorie</th></tr></thead>
+  <tbody>${rows || `<tr><td colspan="5" class="empty">Aucun objet dans cette catégorie.</td></tr>`}</tbody>
+  </table>`;
 }
 function itemDetail(c) {
     const index = c.inventory.items.findIndex((i) => i.id === INVENTORY_UI.selectedItemId);
@@ -122,19 +123,19 @@ function weaponsTable(c) {
     }
     const rows = weapons
         .map((w) => `<tr class="${w.id === INVENTORY_UI.selectedWeaponId ? "is-selected" : ""}"
-                    data-action="select-weapon" data-id="${w.id}" style="cursor:pointer">
-        <td>${esc(w.name)}</td>
-        <td class="num">${fmtMod(w.attackBonus)}</td>
-        <td class="num">${esc(w.damage)}</td>
-        <td class="num">${esc(w.damageType)}</td>
-        <td class="num">${esc(w.range)}</td>
-      </tr>`)
+    data-action="select-weapon" data-id="${w.id}" style="cursor:pointer">
+    <td>${esc(w.name)}</td>
+    <td class="num">${fmtMod(w.attackBonus)}</td>
+    <td class="num">${esc(w.damage)}</td>
+    <td class="num">${esc(w.damageType)}</td>
+    <td class="num">${esc(w.range)}</td>
+    </tr>`)
         .join("");
-    return `<h2>Armes &amp; attaques</h2>
-    <table class="table">
-      <thead><tr><th>Arme</th><th class="num">Attaque</th><th class="num">Dégâts</th><th class="num">Type</th><th class="num">Portée</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="empty">Aucune arme enregistrée.</td></tr>`}</tbody>
-    </table>`;
+    return `<h2>Attaques</h2>
+  <table class="table">
+  <thead><tr><th>Arme</th><th class="num">Attaque</th><th class="num">Dégâts</th><th class="num">Type</th><th class="num">Portée</th></tr></thead>
+  <tbody>${rows || `<tr><td colspan="5" class="empty">Aucune attaque enregistrée.</td></tr>`}</tbody>
+  </table>`;
 }
 function weaponDetail(c) {
     const index = c.inventory.weapons.findIndex((w) => w.id === INVENTORY_UI.selectedWeaponId);
