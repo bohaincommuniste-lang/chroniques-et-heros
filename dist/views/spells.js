@@ -48,32 +48,35 @@ function castStatsCard(c) {
 function slotsCard(c) {
     const rows = Array.from({ length: 9 }, (_, i) => i + 1)
         .map((level) => {
-        const slot = c.spells.slots[String(level)] ?? { max: 0, used: 0 };
-        const remaining = Math.max(0, slot.max - slot.used);
-        const pips = Array.from({ length: slot.max }, (_, i) => {
+        const raw = c.spells.slots[String(level)];
+        const max = Math.max(0, Math.min(9, Number(raw?.max) || 0));
+        const used = Math.max(0, Math.min(max, Number(raw?.used) || 0));
+        const remaining = max - used;
+        const pips = Array.from({ length: max }, (_, i) => {
             const on = i < remaining;
             return `<button class="pip${on ? " on" : ""}" data-action="toggle-slot"
-          data-level="${level}" data-index="${i}" aria-label="Emplacement ${i + 1}"></button>`;
+      data-level="${level}" data-index="${i}" aria-label="Emplacement ${i + 1}"></button>`;
         }).join("");
         return `<tr>
-        <td>Niveau ${level}</td>
-        <td class="num"><input type="number" min="0" max="9" data-bind="spells.slots.${level}.max"
-             value="${slot.max}" data-rerender="true" style="width:56px"></td>
-        <td class="num">${slot.used}</td>
-        <td class="num">${remaining}</td>
-        <td><div class="pips">${pips || `<span style="font-size:12px;color:var(--muted)">—</span>`}</div></td>
-      </tr>`;
+    <td>Niveau ${level}</td>
+    <td class="num"><input type="number" min="0" max="9" data-slot-max="${level}"
+    value="${max}" style="width:56px"></td>
+    <td class="num"><input type="number" min="0" max="${max}" data-slot-used="${level}"
+    value="${used}" style="width:56px"></td>
+    <td class="num">${remaining}</td>
+    <td><div class="pips">${pips || `<span style="font-size:12px;color:var(--muted)">—</span>`}</div></td>
+    </tr>`;
     })
         .join("");
     return `<section class="card" style="margin-top:14px">
-    <h2>Emplacements de sorts</h2>
-    <table class="table">
-      <thead><tr><th>Niveau</th><th class="num">Max</th><th class="num">Utilisés</th><th class="num">Restants</th><th>Cases</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="btn btn-sm" data-action="rest-long">☾ Repos long (tout restaurer)</button>
-    </div>
+  <h2>Emplacements de sorts</h2>
+  <table class="table">
+  <thead><tr><th>Niveau</th><th class="num">Max</th><th class="num">Utilisés</th><th class="num">Restants</th><th>Cases</th></tr></thead>
+  <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:10px;display:flex;gap:8px">
+  <button class="btn btn-sm" data-action="rest-long">☾ Repos long (tout restaurer)</button>
+  </div>
   </section>`;
 }
 /* ------------------------------ Liste des sorts ------------------------------ */
@@ -209,10 +212,13 @@ document.addEventListener("click", (ev) => {
         if (!character)
             return;
         const level = el.dataset.level;
-        const slot = character.spells.slots[level] ?? { max: 0, used: 0 };
-        const remaining = slot.max - slot.used;
+        const slot = character.spells.slots[level];
+        if (!slot)
+            return;
+        const used = Math.max(0, Math.min(slot.max, Number(slot.used) || 0));
+        const remaining = slot.max - used;
         const clickedIndex = Number(el.dataset.index) + 1;
-        slot.used = clickedIndex === remaining ? slot.used + 1 : slot.max - clickedIndex;
+        slot.used = clickedIndex === remaining ? used + 1 : slot.max - clickedIndex;
         slot.used = Math.max(0, Math.min(slot.max, slot.used));
         character.spells.slots[level] = slot;
         store.touch();
@@ -328,6 +334,36 @@ document.addEventListener("change", (ev) => {
     const el = ev.target;
     if (!(el instanceof HTMLInputElement || el instanceof HTMLSelectElement))
         return;
+    /* --- Slots : max --- */
+    if (el instanceof HTMLInputElement && el.hasAttribute("data-slot-max")) {
+        const character = store.current();
+        if (!character)
+            return;
+        const level = el.dataset.slotMax;
+        const max = Math.max(0, Math.min(9, Number(el.value) || 0));
+        const slot = character.spells.slots[level] ?? { max: 0, used: 0 };
+        slot.max = max;
+        if (slot.used > max)
+            slot.used = max;
+        character.spells.slots[level] = slot;
+        store.touch();
+        import("../app.js").then(({ renderApp }) => renderApp());
+        return;
+    }
+    /* --- Slots : utilisés --- */
+    if (el instanceof HTMLInputElement && el.hasAttribute("data-slot-used")) {
+        const character = store.current();
+        if (!character)
+            return;
+        const level = el.dataset.slotUsed;
+        const slot = character.spells.slots[level] ?? { max: 0, used: 0 };
+        slot.used = Math.max(0, Math.min(slot.max, Number(el.value) || 0));
+        character.spells.slots[level] = slot;
+        store.touch();
+        import("../app.js").then(({ renderApp }) => renderApp());
+        return;
+    }
+    /* --- Filtres de sorts (existant) --- */
     const filter = el.dataset.spellFilter;
     if (!filter)
         return;

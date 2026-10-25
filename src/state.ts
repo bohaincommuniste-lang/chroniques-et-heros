@@ -90,13 +90,12 @@ export function blankCharacter(name = "Nouveau personnage"): Character {
 function mergeDeep(base: unknown, patch: unknown): unknown {
   if (Array.isArray(base)) return Array.isArray(patch) ? patch : base;
   if (base && typeof base === "object") {
+    if (!patch || typeof patch !== "object") return base;
     const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-    if (patch && typeof patch === "object") {
-      for (const key of Object.keys(out)) {
-        if (key in (patch as Record<string, unknown>)) {
-          out[key] = mergeDeep(out[key], (patch as Record<string, unknown>)[key]);
-        }
-      }
+    for (const key of Object.keys(patch as Record<string, unknown>)) {
+      const patchVal = (patch as Record<string, unknown>)[key];
+      if (key in out) out[key] = mergeDeep(out[key], patchVal);
+      else out[key] = patchVal; // ← préserve les clés dynamiques (niveaux de slots)
     }
     return out;
   }
@@ -146,7 +145,9 @@ function migrateRaw(raw: unknown): unknown {
 /** Normalise / migre un personnage importé. */
 export function normalizeCharacter(raw: unknown): Character {
   const base = blankCharacter();
-  const merged = mergeDeep(base, raw) as Character;
+  const migrated = migrateRaw(deepClone(raw));   // ← indispensable
+  const merged = mergeDeep(base, migrated) as Character;
+
   merged.schemaVersion = SCHEMA_VERSION;
   merged.id = typeof merged.id === "string" && merged.id ? merged.id : uid();
   merged.createdAt = merged.createdAt || new Date().toISOString();
@@ -173,6 +174,18 @@ export function normalizeCharacter(raw: unknown): Character {
   if (!Array.isArray(merged.inventory.weapons)) merged.inventory.weapons = [];
   if (!Array.isArray(merged.spells.list)) merged.spells.list = [];
   if (!merged.spells.slots || typeof merged.spells.slots !== "object") merged.spells.slots = {};
+
+  for (const key of Object.keys(merged.spells.slots)) {
+    const slot = merged.spells.slots[key] as { max?: unknown; used?: unknown } | null;
+    if (!slot || typeof slot !== "object") {
+      delete merged.spells.slots[key];
+      continue;
+    }
+    const max = Math.max(0, Math.min(9, Number(slot.max) || 0));
+    const used = Math.max(0, Math.min(max, Number(slot.used) || 0));
+    merged.spells.slots[key] = { max, used };
+  }
+
   if (!Array.isArray(merged.story.events)) merged.story.events = [];
 
   return merged;
